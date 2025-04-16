@@ -8,7 +8,7 @@ import os
 import requests
 from bs4 import BeautifulSoup
 
-# Agenda Items and Keywords for Auto-Tracking
+# Dugin Agenda Items
 AGENDA_ITEMS = {
     "Dismantling NATO Alliances": ["NATO", "withdraw troops", "Trump NATO", "defund NATO"],
     "Weakening U.S. Intelligence Community": ["FBI purge", "CIA cuts", "intelligence overhaul"],
@@ -22,7 +22,6 @@ AGENDA_ITEMS = {
     "Undermining Global Democratic Norms": ["autocracy rise", "authoritarian alliance", "dismantle democracy"]
 }
 
-# Get progress and headlines
 @st.cache_data(show_spinner=False)
 def fetch_progress_and_headlines():
     headers = {"User-Agent": "Mozilla/5.0"}
@@ -34,29 +33,24 @@ def fetch_progress_and_headlines():
         seen_titles = set()
         headlines = []
 
-        for keyword in keywords:
+        for keyword in keywords[:2]:
             try:
                 url = base_url.format(query=keyword.replace(" ", "+"))
                 response = requests.get(url, headers=headers, timeout=5)
                 soup = BeautifulSoup(response.content, "html.parser")
-                articles = soup.find_all("article")
-
-                for article in articles:
-                    title_tag = article.find("a")
-                    if not title_tag or not title_tag.text.strip():
-                        continue
-                    title = title_tag.text.strip()
-                    href = title_tag.get("href", "")
+                for tag in soup.select("article h3 a"):
+                    title = tag.text.strip()
+                    href = tag.get("href", "")
                     if href.startswith("./"):
                         href = "https://news.google.com" + href[1:]
-                    if title not in seen_titles:
+                    if title and title not in seen_titles:
                         seen_titles.add(title)
                         headlines.append((title, href))
                         total_hits += 1
-            except Exception:
+            except Exception as e:
+                print(f"Error for keyword '{keyword}': {e}")
                 continue
 
-        # Map total_hits to progress score
         if total_hits <= 3:
             score = 10
         elif total_hits <= 7:
@@ -70,7 +64,8 @@ def fetch_progress_and_headlines():
 
         result[item] = {
             "progress": score,
-            "headlines": headlines[:2]
+            "headlines": headlines[:3],
+            "hit_count": total_hits
         }
 
     return result
@@ -83,25 +78,24 @@ Aleksandr Dugin, a Russian political philosopher, promotes a Eurasian worldview 
 This dashboard tracks the advancement of his ideological blueprint through U.S. politics.
 """)
 
-# Header
+# Main Title
 st.title("Dugin-Trump Agenda Tracker")
-st.markdown("""
-Live monitoring of 10 strategic objectives aligned with Dugin's ideology to evaluate their adoption within U.S. governance.
-""")
+st.markdown("Live monitoring of 10 strategic objectives aligned with Dugin's ideology to evaluate their adoption within U.S. governance.")
 
-# Show progress and headlines
-st.markdown("### Current Progress Snapshot (Auto-Sourced)")
+# Data Fetch
 data = fetch_progress_and_headlines()
+st.markdown("### Current Progress Snapshot (Auto-Sourced)")
 
 for item, details in data.items():
     st.progress(details["progress"], text=f"{item}: {details['progress']}%")
+    st.caption(f"📰 {details['hit_count']} articles matched")
     with st.expander("See headlines"):
         for title, url in details["headlines"]:
             st.markdown(f"- [{title}]({url})")
 
-# Export PDF placeholder
+# Export Placeholder
 if st.button("Export Intelligence PDF"):
-    st.info("PDF export coming soon - this will include headlines and trend charts.")
+    st.info("PDF export coming soon.")
 
 # Email Report
 def send_weekly_email():
