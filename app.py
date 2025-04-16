@@ -8,7 +8,7 @@ import os
 import requests
 from bs4 import BeautifulSoup
 
-# Dugin-Trump Agenda Items and associated keywords
+# Agenda Items and Keywords for Auto-Tracking
 AGENDA_ITEMS = {
     "Dismantling NATO Alliances": ["NATO", "withdraw troops", "Trump NATO", "defund NATO"],
     "Weakening U.S. Intelligence Community": ["FBI purge", "CIA cuts", "intelligence overhaul"],
@@ -22,12 +22,15 @@ AGENDA_ITEMS = {
     "Undermining Global Democratic Norms": ["autocracy rise", "authoritarian alliance", "dismantle democracy"]
 }
 
-# Auto-update progress using Google News scraping
+# Updated progress function with normalized scoring
 @st.cache_data(show_spinner=False)
 def fetch_progress():
     headers = {"User-Agent": "Mozilla/5.0"}
     base_url = "https://news.google.com/search?q={query}&hl=en-US&gl=US&ceid=US:en"
     updated = {}
+    max_score = 0
+    raw_counts = {}
+
     for item, keywords in AGENDA_ITEMS.items():
         score = 0
         for keyword in keywords:
@@ -36,10 +39,16 @@ def fetch_progress():
                 response = requests.get(url, headers=headers, timeout=5)
                 soup = BeautifulSoup(response.content, "html.parser")
                 articles = soup.find_all("article")
-                score += min(len(articles), 10)
+                score += len(articles)
             except Exception:
                 continue
-        updated[item] = min(score * 10, 100)
+        raw_counts[item] = score
+        max_score = max(max_score, score)
+
+    for item in AGENDA_ITEMS:
+        normalized = (raw_counts[item] / max_score) * 100 if max_score else 0
+        updated[item] = int(normalized)
+
     return updated
 
 # Sidebar
@@ -56,17 +65,17 @@ st.markdown("""
 Live monitoring of 10 strategic objectives aligned with Dugin's ideology to evaluate their adoption within U.S. governance.
 """)
 
-# Show progress snapshot
+# Fetch progress
 st.markdown("### Current Progress Snapshot (Auto-Sourced)")
 latest_progress = fetch_progress()
 for item, value in latest_progress.items():
     st.progress(value, text=f"{item}: {value}%")
 
-# Placeholder for PDF export
+# Export PDF (placeholder)
 if st.button("Export Intelligence PDF"):
     st.info("PDF export coming soon - this will include headlines and trend charts.")
 
-# Email report function
+# Email Report
 def send_weekly_email():
     sender_email = os.getenv("EMAIL_USER")
     receiver_email = "scarfaceforward@gmail.com"
@@ -89,7 +98,7 @@ def send_weekly_email():
         server.login(sender_email, password)
         server.sendmail(sender_email, receiver_email, message.as_string())
 
-# Trigger email button
+# Send email button
 if st.button("Send Weekly Email Report"):
     send_weekly_email()
     st.success("Email sent to scarfaceforward@gmail.com")
