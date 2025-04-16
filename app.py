@@ -22,32 +22,38 @@ AGENDA_ITEMS = {
     "Undermining Global Democratic Norms": ["autocracy rise", "authoritarian alliance", "dismantle democracy"]
 }
 
-# Updated progress function with normalized scoring
+# Improved binning logic for progress scoring
 @st.cache_data(show_spinner=False)
 def fetch_progress():
     headers = {"User-Agent": "Mozilla/5.0"}
     base_url = "https://news.google.com/search?q={query}&hl=en-US&gl=US&ceid=US:en"
     updated = {}
-    max_score = 0
-    raw_counts = {}
 
     for item, keywords in AGENDA_ITEMS.items():
-        score = 0
+        total_hits = 0
         for keyword in keywords:
             try:
                 url = base_url.format(query=keyword.replace(" ", "+"))
                 response = requests.get(url, headers=headers, timeout=5)
                 soup = BeautifulSoup(response.content, "html.parser")
                 articles = soup.find_all("article")
-                score += len(articles)
+                total_hits += len(articles)
             except Exception:
                 continue
-        raw_counts[item] = score
-        max_score = max(max_score, score)
 
-    for item in AGENDA_ITEMS:
-        normalized = (raw_counts[item] / max_score) * 100 if max_score else 0
-        updated[item] = int(normalized)
+        # Map raw hit count into a defined progress bin
+        if total_hits <= 3:
+            progress = 10
+        elif total_hits <= 7:
+            progress = 30
+        elif total_hits <= 15:
+            progress = 60
+        elif total_hits <= 25:
+            progress = 80
+        else:
+            progress = 100
+
+        updated[item] = progress
 
     return updated
 
