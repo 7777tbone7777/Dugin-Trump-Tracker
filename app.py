@@ -6,32 +6,32 @@ from email.mime.multipart import MIMEMultipart
 import requests
 import time
 import random
+from textblob import TextBlob
 
-# Dugin Agenda Items and Keywords
+# Dugin agenda and polarity flip map (True = flip sentiment)
 AGENDA_ITEMS = {
-    "Dismantling NATO Alliances": ["NATO", "withdraw troops", "Trump NATO"],
-    "Weakening U.S. Intelligence Community": ["FBI purge", "CIA cuts", "intelligence overhaul"],
-    "Pulling Troops from Strategic Regions": ["troop withdrawal", "military exit"],
-    "Promoting Christian Nationalism": ["Christian nationalism", "evangelical politics"],
-    "Delegitimizing Elections": ["voter fraud", "rigged election"],
-    "Reducing Federal Power Over States": ["states' rights", "federal overreach"],
-    "Isolationist Foreign Policy": ["America First", "foreign aid cuts"],
-    "Discrediting Free Press": ["fake news", "enemy of the people"],
-    "Fostering Civil Unrest": ["civil war", "armed protest"],
-    "Undermining Global Democratic Norms": ["autocracy rise", "authoritarian alliance"]
+    "Dismantling NATO Alliances": (["NATO", "withdraw troops", "Trump NATO"], True),
+    "Weakening U.S. Intelligence Community": (["FBI purge", "CIA cuts", "intelligence overhaul"], True),
+    "Pulling Troops from Strategic Regions": (["troop withdrawal", "military exit"], True),
+    "Promoting Christian Nationalism": (["Christian nationalism", "evangelical politics"], True),
+    "Delegitimizing Elections": (["voter fraud", "rigged election"], True),
+    "Reducing Federal Power Over States": (["states' rights", "federal overreach"], True),
+    "Isolationist Foreign Policy": (["America First", "foreign aid cuts"], True),
+    "Discrediting Free Press": (["fake news", "enemy of the people"], True),
+    "Fostering Civil Unrest": (["civil war", "armed protest"], True),
+    "Undermining Global Democratic Norms": (["autocracy rise", "authoritarian alliance"], True)
 }
 
 @st.cache_data(show_spinner=False)
-def fetch_progress_and_headlines():
+def fetch_sentiment_progress():
     api_key = st.secrets["NEWSAPI_KEY"]
     base_url = "https://newsapi.org/v2/everything"
     results = {}
 
-    for item, keywords in AGENDA_ITEMS.items():
-        # Pick a random keyword each run
+    for item, (keywords, flip_sentiment) in AGENDA_ITEMS.items():
         keyword = random.choice(keywords)
-        hit_count = 0
         headlines = []
+        sentiment_scores = []
 
         params = {
             "q": keyword,
@@ -40,42 +40,42 @@ def fetch_progress_and_headlines():
             "sortBy": "publishedAt",
             "apiKey": api_key
         }
+
         try:
             response = requests.get(base_url, params=params, timeout=5)
-            time.sleep(1)  # throttle
+            time.sleep(1)
             data = response.json()
             articles = data.get("articles", [])
             for article in articles:
                 title = article["title"]
                 url = article["url"]
                 source = article["source"]["name"]
+                polarity = TextBlob(title).sentiment.polarity
+                if flip_sentiment:
+                    polarity *= -1
+                sentiment_scores.append(polarity)
                 headlines.append((title, url, source))
-                hit_count += 1
         except Exception as e:
             print(f"Error fetching {keyword}: {e}")
 
-        # Scoring
-        if hit_count <= 3:
-            score = 10
-        elif hit_count <= 7:
-            score = 30
-        elif hit_count <= 15:
-            score = 60
-        elif hit_count <= 25:
-            score = 80
+        if sentiment_scores:
+            avg_score = sum(sentiment_scores) / len(sentiment_scores)
         else:
-            score = 100
+            avg_score = 0
+
+        # Normalize from -1 to 1 → 0 to 100%
+        progress = round((avg_score + 1) * 50)
+        progress = max(0, min(progress, 100))
 
         results[item] = {
-            "progress": score,
-            "hit_count": hit_count,
+            "progress": progress,
             "headlines": headlines[:3],
             "keyword_used": keyword
         }
 
     return results
 
-# Sidebar Context
+# UI
 st.sidebar.title("Dugin Context")
 st.sidebar.markdown("""
 Aleksandr Dugin, a Russian political philosopher, promotes a Eurasian worldview opposed to liberal Western democracy.
@@ -83,24 +83,18 @@ Aleksandr Dugin, a Russian political philosopher, promotes a Eurasian worldview 
 This dashboard tracks the advancement of his ideological blueprint through U.S. politics.
 """)
 
-# Dashboard Header
 st.title("Dugin-Trump Agenda Tracker")
-st.markdown("Live monitoring of 10 strategic objectives aligned with Dugin's ideology to evaluate their adoption within U.S. governance.")
+st.markdown("Sentiment-based monitoring of 10 strategic objectives aligned with Dugin's ideology to evaluate their adoption within U.S. governance.")
 
-# Fetch data
-data = fetch_progress_and_headlines()
-st.markdown("### Current Progress Snapshot (Auto-Sourced)")
+data = fetch_sentiment_progress()
+st.markdown("### Current Sentiment Progress (Auto-Sourced)")
 
 for item, details in data.items():
     st.progress(details["progress"], text=f"{item}: {details['progress']}%")
-    st.caption(f"📰 {details['hit_count']} articles matched — Keyword: *{details['keyword_used']}*")
+    st.caption(f"🧠 Keyword: *{details['keyword_used']}*")
     with st.expander("See headlines"):
         for title, url, source in details["headlines"]:
             st.markdown(f"- [{title}]({url}) _(via {source})_")
-
-# Export Placeholder
-if st.button("Export Intelligence PDF"):
-    st.info("PDF export coming soon.")
 
 # Email Report
 def send_weekly_email():
@@ -109,14 +103,14 @@ def send_weekly_email():
     receiver_email = "scarfaceforward@gmail.com"
 
     message = MIMEMultipart("alternative")
-    message["Subject"] = "Weekly Dugin-Trump Agenda Progress Update"
+    message["Subject"] = "Weekly Dugin-Trump Sentiment Update"
     message["From"] = sender_email
     message["To"] = receiver_email
 
-    html = f"<html><body><h2>Dugin-Trump Agenda Weekly Report - {datetime.date.today()}</h2><ul>"
+    html = f"<html><body><h2>Dugin-Trump Sentiment Report - {datetime.date.today()}</h2><ul>"
     for item, details in data.items():
         html += f"<li><strong>{item}:</strong> {details['progress']}% (Keyword: {details['keyword_used']})</li>"
-    html += "</ul><p>This report was auto-generated by the Dugin-Trump Tracker System.</p></body></html>"
+    html += "</ul><p>This report was generated from sentiment analysis of current news headlines.</p></body></html>"
 
     part = MIMEText(html, "html")
     message.attach(part)
