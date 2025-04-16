@@ -4,9 +4,9 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import requests
-import os
+import time  # <- NEW for throttling
 
-# Agenda keywords
+# Define agenda item keyword sets
 AGENDA_ITEMS = {
     "Dismantling NATO Alliances": ["NATO", "withdraw troops", "Trump NATO"],
     "Weakening U.S. Intelligence Community": ["FBI purge", "CIA cuts", "intelligence overhaul"],
@@ -30,7 +30,7 @@ def fetch_progress_and_headlines():
         hit_count = 0
         all_articles = []
 
-        for keyword in keywords[:2]:
+        for keyword in keywords[:2]:  # Use 2 keywords to conserve quota
             params = {
                 "q": keyword,
                 "language": "en",
@@ -40,6 +40,7 @@ def fetch_progress_and_headlines():
             }
             try:
                 response = requests.get(base_url, params=params, timeout=5)
+                time.sleep(1)  # <- Throttle requests
                 data = response.json()
                 articles = data.get("articles", [])
                 for article in articles:
@@ -52,7 +53,6 @@ def fetch_progress_and_headlines():
             except Exception as e:
                 print(f"Error fetching {keyword}: {e}")
 
-        # Scoring
         if hit_count <= 3:
             score = 10
         elif hit_count <= 7:
@@ -72,7 +72,8 @@ def fetch_progress_and_headlines():
 
     return results
 
-# Sidebar
+# Streamlit UI
+
 st.sidebar.title("Dugin Context")
 st.sidebar.markdown("""
 Aleksandr Dugin, a Russian political philosopher, promotes a Eurasian worldview opposed to liberal Western democracy.
@@ -80,11 +81,9 @@ Aleksandr Dugin, a Russian political philosopher, promotes a Eurasian worldview 
 This dashboard tracks the advancement of his ideological blueprint through U.S. politics.
 """)
 
-# Header
 st.title("Dugin-Trump Agenda Tracker")
 st.markdown("Live monitoring of 10 strategic objectives aligned with Dugin's ideology to evaluate their adoption within U.S. governance.")
 
-# Fetch data
 data = fetch_progress_and_headlines()
 st.markdown("### Current Progress Snapshot (Auto-Sourced)")
 
@@ -95,7 +94,7 @@ for item, details in data.items():
         for title, url, source in details["headlines"]:
             st.markdown(f"- [{title}]({url}) _(via {source})_")
 
-# PDF Placeholder
+# Export Placeholder
 if st.button("Export Intelligence PDF"):
     st.info("PDF export coming soon.")
 
