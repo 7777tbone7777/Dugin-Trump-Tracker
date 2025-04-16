@@ -1,74 +1,76 @@
 import streamlit as st
-import pandas as pd
 import datetime
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-import os
 import requests
-from bs4 import BeautifulSoup
+import os
 
-# Dugin Agenda Items
+# Agenda keywords
 AGENDA_ITEMS = {
-    "Dismantling NATO Alliances": ["NATO", "withdraw troops", "Trump NATO", "defund NATO"],
+    "Dismantling NATO Alliances": ["NATO", "withdraw troops", "Trump NATO"],
     "Weakening U.S. Intelligence Community": ["FBI purge", "CIA cuts", "intelligence overhaul"],
-    "Pulling Troops from Strategic Regions": ["troop withdrawal", "military exit", "Trump Middle East pullout"],
-    "Promoting Christian Nationalism": ["Christian nationalism", "evangelical politics", "dominionism"],
-    "Delegitimizing Elections": ["voter fraud", "rigged election", "fake ballots"],
-    "Reducing Federal Power Over States": ["states' rights", "federal overreach", "sovereignty acts"],
-    "Isolationist Foreign Policy": ["America First", "foreign aid cuts", "Trump isolationism"],
-    "Discrediting Free Press": ["fake news", "enemy of the people", "media lies"],
-    "Fostering Civil Unrest": ["civil war", "armed protest", "Trump militia"],
-    "Undermining Global Democratic Norms": ["autocracy rise", "authoritarian alliance", "dismantle democracy"]
+    "Pulling Troops from Strategic Regions": ["troop withdrawal", "military exit"],
+    "Promoting Christian Nationalism": ["Christian nationalism", "evangelical politics"],
+    "Delegitimizing Elections": ["voter fraud", "rigged election"],
+    "Reducing Federal Power Over States": ["states' rights", "federal overreach"],
+    "Isolationist Foreign Policy": ["America First", "foreign aid cuts"],
+    "Discrediting Free Press": ["fake news", "enemy of the people"],
+    "Fostering Civil Unrest": ["civil war", "armed protest"],
+    "Undermining Global Democratic Norms": ["autocracy rise", "authoritarian alliance"]
 }
 
 @st.cache_data(show_spinner=False)
 def fetch_progress_and_headlines():
-    headers = {"User-Agent": "Mozilla/5.0"}
-    base_url = "https://news.google.com/search?q={query}&hl=en-US&gl=US&ceid=US:en"
-    result = {}
+    api_key = st.secrets["NEWSAPI_KEY"]
+    base_url = "https://newsapi.org/v2/everything"
+    results = {}
 
     for item, keywords in AGENDA_ITEMS.items():
-        total_hits = 0
-        seen_titles = set()
-        headlines = []
+        hit_count = 0
+        all_articles = []
 
         for keyword in keywords[:2]:
+            params = {
+                "q": keyword,
+                "language": "en",
+                "pageSize": 10,
+                "sortBy": "publishedAt",
+                "apiKey": api_key
+            }
             try:
-                url = base_url.format(query=keyword.replace(" ", "+"))
-                response = requests.get(url, headers=headers, timeout=5)
-                soup = BeautifulSoup(response.content, "html.parser")
-                for tag in soup.select("article h3 a"):
-                    title = tag.text.strip()
-                    href = tag.get("href", "")
-                    if href.startswith("./"):
-                        href = "https://news.google.com" + href[1:]
-                    if title and title not in seen_titles:
-                        seen_titles.add(title)
-                        headlines.append((title, href))
-                        total_hits += 1
+                response = requests.get(base_url, params=params, timeout=5)
+                data = response.json()
+                articles = data.get("articles", [])
+                for article in articles:
+                    title = article["title"]
+                    url = article["url"]
+                    source = article["source"]["name"]
+                    if (title, url) not in all_articles:
+                        all_articles.append((title, url, source))
+                        hit_count += 1
             except Exception as e:
-                print(f"Error for keyword '{keyword}': {e}")
-                continue
+                print(f"Error fetching {keyword}: {e}")
 
-        if total_hits <= 3:
+        # Scoring
+        if hit_count <= 3:
             score = 10
-        elif total_hits <= 7:
+        elif hit_count <= 7:
             score = 30
-        elif total_hits <= 15:
+        elif hit_count <= 15:
             score = 60
-        elif total_hits <= 25:
+        elif hit_count <= 25:
             score = 80
         else:
             score = 100
 
-        result[item] = {
+        results[item] = {
             "progress": score,
-            "headlines": headlines[:3],
-            "hit_count": total_hits
+            "hit_count": hit_count,
+            "headlines": all_articles[:3]
         }
 
-    return result
+    return results
 
 # Sidebar
 st.sidebar.title("Dugin Context")
@@ -78,11 +80,11 @@ Aleksandr Dugin, a Russian political philosopher, promotes a Eurasian worldview 
 This dashboard tracks the advancement of his ideological blueprint through U.S. politics.
 """)
 
-# Main Title
+# Header
 st.title("Dugin-Trump Agenda Tracker")
 st.markdown("Live monitoring of 10 strategic objectives aligned with Dugin's ideology to evaluate their adoption within U.S. governance.")
 
-# Data Fetch
+# Fetch data
 data = fetch_progress_and_headlines()
 st.markdown("### Current Progress Snapshot (Auto-Sourced)")
 
@@ -90,18 +92,18 @@ for item, details in data.items():
     st.progress(details["progress"], text=f"{item}: {details['progress']}%")
     st.caption(f"📰 {details['hit_count']} articles matched")
     with st.expander("See headlines"):
-        for title, url in details["headlines"]:
-            st.markdown(f"- [{title}]({url})")
+        for title, url, source in details["headlines"]:
+            st.markdown(f"- [{title}]({url}) _(via {source})_")
 
-# Export Placeholder
+# PDF Placeholder
 if st.button("Export Intelligence PDF"):
     st.info("PDF export coming soon.")
 
 # Email Report
 def send_weekly_email():
-    sender_email = os.getenv("EMAIL_USER")
+    sender_email = st.secrets["EMAIL_USER"]
+    password = st.secrets["EMAIL_PASS"]
     receiver_email = "scarfaceforward@gmail.com"
-    password = os.getenv("EMAIL_PASS")
 
     message = MIMEMultipart("alternative")
     message["Subject"] = "Weekly Dugin-Trump Agenda Progress Update"
