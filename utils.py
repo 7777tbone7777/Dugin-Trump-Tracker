@@ -1,4 +1,7 @@
 
+import feedparser
+from datetime import datetime
+
 def analyze_progress():
     return [
         {"title": "Federal Agency Capture", "progress": 82, "last_updated": "2025-04-17"},
@@ -9,11 +12,25 @@ def analyze_progress():
     ]
 
 def fetch_geopolitical_updates():
-    return [
-        {"title": "House Votes to Slash NATO Budget", "date": "2025-04-16", "summary": "The House passed a bill cutting 70% of funding for NATO participation."},
-        {"title": "Defiance of 9-0 SCOTUS Ruling", "date": "2025-04-15", "summary": "The administration failed to act on a unanimous Supreme Court decision."},
-        {"title": "DOJ Restructuring Continues", "date": "2025-04-14", "summary": "Major DOJ divisions reorganized under political appointees."},
+    rss_urls = [
+        "http://feeds.reuters.com/Reuters/worldNews",
+        "http://feeds.bbci.co.uk/news/world/rss.xml",
+        "https://apnews.com/rss/apf-topnews"
     ]
+
+    articles = []
+
+    for url in rss_urls:
+        feed = feedparser.parse(url)
+        for entry in feed.entries[:3]:
+            articles.append({
+                "title": entry.title,
+                "date": datetime(*entry.published_parsed[:6]).strftime('%Y-%m-%d') if hasattr(entry, 'published_parsed') else "N/A",
+                "summary": entry.summary if hasattr(entry, 'summary') else "",
+                "link": entry.link
+            })
+
+    return articles
 
 def trigger_emergency_alert(progress_data):
     triggered = False
