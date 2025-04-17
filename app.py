@@ -29,7 +29,7 @@ if alert['triggered']:
 st.markdown("## 📰 Latest Key Events")
 events = fetch_geopolitical_updates()
 for event in events:
-    st.markdown(f"**{event['title']}** ({event['date']})")
+    st.markdown(f"**[{event['title']}]({event['link']})** ({event['date']})")
     st.write(event['summary'])
 
 # --- Export Report ---
