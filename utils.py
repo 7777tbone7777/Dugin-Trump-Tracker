@@ -1,6 +1,7 @@
 
 import feedparser
 from datetime import datetime
+import streamlit as st
 
 def analyze_progress():
     return [
@@ -11,6 +12,7 @@ def analyze_progress():
         {"title": "Media Subversion", "progress": 54, "last_updated": "2025-04-17"},
     ]
 
+@st.cache_data(ttl=300)  # Cache results for 5 minutes to avoid hitting RSS query limits
 def fetch_geopolitical_updates():
     rss_urls = [
         "http://feeds.reuters.com/Reuters/worldNews",
