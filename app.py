@@ -21,7 +21,7 @@ if alert['triggered']:
 st.markdown("## 📊 Progress Toward Authoritarian Goals")
 
 events = fetch_geopolitical_updates()
-
+st.text(f"Sample tags from news: {[e['tags'] for e in events]}")
 for item in progress_data:
     st.subheader(item['title'])
     st.progress(item['progress'] / 100)
