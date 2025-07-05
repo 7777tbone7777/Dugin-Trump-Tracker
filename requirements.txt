@@ -5,3 +5,4 @@ fpdf
 schedule
 textblob
 feedparser
+openai==1.30.1
