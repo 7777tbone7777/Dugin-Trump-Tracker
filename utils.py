@@ -2,44 +2,6 @@ import feedparser
 from datetime import datetime
 import streamlit as st
 
-@st.cache_data(ttl=300)  # Cache for 5 minutes
-def fetch_geopolitical_updates():
-    rss_urls = [
-        "http://feeds.reuters.com/Reuters/worldNews",
-        "http://feeds.bbci.co.uk/news/world/rss.xml",
-        "https://apnews.com/rss/apf-topnews"
-    ]
-
-    tag_keywords = {
-        "Federal Agency Capture": ["agency", "DOJ", "FBI", "federal", "oversight", "regulator", "EPA", "bureau"],
-        "Judicial Defiance": ["judge", "court", "SCOTUS", "ruling", "judicial", "justice", "overturn", "legal"],
-        "Suppression of Dissent": ["protest", "arrest", "speech", "dissent", "activist", "press", "police", "censorship"],
-        "NATO Disengagement": ["NATO", "withdraw", "alliances", "troops", "military", "europe", "disengagement"],
-        "Media Subversion": ["media", "news", "journalist", "propaganda", "coverage", "broadcast", "misinformation"]
-    }
-
-    articles = []
-
-    for url in rss_urls:
-        feed = feedparser.parse(url)
-        for entry in feed.entries[:5]:
-            summary = entry.summary.lower() if hasattr(entry, 'summary') else ""
-            matched_tags = []
-
-            for tag, keywords in tag_keywords.items():
-                if any(k.lower() in summary for k in keywords):
-                    matched_tags.append(tag)
-
-            articles.append({
-                "title": entry.title,
-                "date": datetime(*entry.published_parsed[:6]).strftime('%Y-%m-%d') if hasattr(entry, 'published_parsed') else "N/A",
-                "summary": entry.summary if hasattr(entry, 'summary') else "",
-                "link": entry.link,
-                "tags": matched_tags or ["Uncategorized"]
-            })
-
-    return articles
-
 def analyze_progress():
     return [
         {"title": "Federal Agency Capture", "progress": 82, "last_updated": "2025-04-17"},
@@ -48,6 +10,44 @@ def analyze_progress():
         {"title": "NATO Disengagement", "progress": 43, "last_updated": "2025-04-17"},
         {"title": "Media Subversion", "progress": 54, "last_updated": "2025-04-17"},
     ]
+
+@st.cache_data(ttl=300)
+def fetch_geopolitical_updates():
+    rss_urls = [
+        "http://feeds.reuters.com/Reuters/worldNews",
+        "http://feeds.bbci.co.uk/news/world/rss.xml",
+        "https://apnews.com/rss/apf-topnews"
+    ]
+
+    articles = []
+
+    for url in rss_urls:
+        feed = feedparser.parse(url)
+        for entry in feed.entries[:3]:
+            title = entry.title.lower()
+            summary = entry.summary.lower()
+
+            tags = []
+            if any(word in title or summary for word in ["fbi", "irs", "agency", "oversight", "executive"]):
+                tags.append("Federal Agency Capture")
+            if any(word in title or summary for word in ["judge", "supreme court", "ruling", "constitutional"]):
+                tags.append("Judicial Defiance")
+            if any(word in title or summary for word in ["protest", "arrest", "media", "speech", "journalist"]):
+                tags.append("Suppression of Dissent")
+            if any(word in title or summary for word in ["nato", "europe", "alliance", "withdrawal", "ukraine"]):
+                tags.append("NATO Disengagement")
+            if any(word in title or summary for word in ["cnn", "fake news", "press", "censorship"]):
+                tags.append("Media Subversion")
+
+            articles.append({
+                "title": entry.title,
+                "date": datetime(*entry.published_parsed[:6]).strftime('%Y-%m-%d') if hasattr(entry, 'published_parsed') else "N/A",
+                "summary": entry.summary if hasattr(entry, 'summary') else "",
+                "link": entry.link,
+                "tags": tags
+            })
+
+    return articles
 
 def trigger_emergency_alert(progress_data):
     triggered = False
