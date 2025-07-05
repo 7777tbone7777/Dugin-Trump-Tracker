@@ -4,3 +4,4 @@ requests
 fpdf
 schedule
 textblob
+feedparser
