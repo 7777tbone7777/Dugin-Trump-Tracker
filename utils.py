@@ -1,15 +1,18 @@
 import feedparser
 from datetime import datetime
 import streamlit as st
+import openai
+import os
 
-def analyze_progress():
-    return [
-        {"title": "Federal Agency Capture", "progress": 82, "last_updated": "2025-04-17"},
-        {"title": "Judicial Defiance", "progress": 73, "last_updated": "2025-04-17"},
-        {"title": "Suppression of Dissent", "progress": 78, "last_updated": "2025-04-17"},
-        {"title": "NATO Disengagement", "progress": 43, "last_updated": "2025-04-17"},
-        {"title": "Media Subversion", "progress": 54, "last_updated": "2025-04-17"},
-    ]
+openai.api_key = os.getenv("OPENAI_API_KEY")
+
+AGENDA_CATEGORIES = [
+    "Federal Agency Capture",
+    "Judicial Defiance",
+    "Suppression of Dissent",
+    "NATO Disengagement",
+    "Media Subversion"
+]
 
 @st.cache_data(ttl=300)
 def fetch_geopolitical_updates():
@@ -24,30 +27,61 @@ def fetch_geopolitical_updates():
     for url in rss_urls:
         feed = feedparser.parse(url)
         for entry in feed.entries[:3]:
-            title = entry.title.lower()
-            summary = entry.summary.lower()
-
-            tags = []
-            if any(word in title or summary for word in ["fbi", "irs", "agency", "oversight", "executive"]):
-                tags.append("Federal Agency Capture")
-            if any(word in title or summary for word in ["judge", "supreme court", "ruling", "constitutional"]):
-                tags.append("Judicial Defiance")
-            if any(word in title or summary for word in ["protest", "arrest", "media", "speech", "journalist"]):
-                tags.append("Suppression of Dissent")
-            if any(word in title or summary for word in ["nato", "europe", "alliance", "withdrawal", "ukraine"]):
-                tags.append("NATO Disengagement")
-            if any(word in title or summary for word in ["cnn", "fake news", "press", "censorship"]):
-                tags.append("Media Subversion")
+            title = entry.title
+            summary = entry.summary if hasattr(entry, 'summary') else ""
+            full_text = f"Title: {title}\nSummary: {summary}"
+            tag = assign_tag_with_ai(full_text)
 
             articles.append({
-                "title": entry.title,
+                "title": title,
                 "date": datetime(*entry.published_parsed[:6]).strftime('%Y-%m-%d') if hasattr(entry, 'published_parsed') else "N/A",
-                "summary": entry.summary if hasattr(entry, 'summary') else "",
+                "summary": summary,
                 "link": entry.link,
-                "tags": tags
+                "tags": [tag] if tag else []
             })
 
     return articles
+
+def assign_tag_with_ai(article_text):
+    try:
+        system_prompt = (
+            "You're a political analyst classifying news based on authoritarian strategy. "
+            "Choose the ONE most relevant category from this list:\n"
+            "1. Federal Agency Capture\n"
+            "2. Judicial Defiance\n"
+            "3. Suppression of Dissent\n"
+            "4. NATO Disengagement\n"
+            "5. Media Subversion\n"
+            "If none apply, return 'None'. Only return the category name."
+        )
+
+        user_prompt = f"Classify this article:\n{article_text}"
+
+        response = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.2,
+            max_tokens=20
+        )
+
+        tag = response.choices[0].message['content'].strip()
+        return tag if tag in AGENDA_CATEGORIES else None
+
+    except Exception as e:
+        print(f"AI tag error: {e}")
+        return None
+
+def analyze_progress():
+    return [
+        {"title": "Federal Agency Capture", "progress": 82, "last_updated": "2025-04-17"},
+        {"title": "Judicial Defiance", "progress": 73, "last_updated": "2025-04-17"},
+        {"title": "Suppression of Dissent", "progress": 78, "last_updated": "2025-04-17"},
+        {"title": "NATO Disengagement", "progress": 43, "last_updated": "2025-04-17"},
+        {"title": "Media Subversion", "progress": 54, "last_updated": "2025-04-17"},
+    ]
 
 def trigger_emergency_alert(progress_data):
     triggered = False
