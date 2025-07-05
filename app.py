@@ -1,57 +1,57 @@
+
 import streamlit as st
 import datetime
 from utils import fetch_geopolitical_updates, analyze_progress, trigger_emergency_alert, generate_pdf_report
 
-# --- Sidebar ---
+st.set_page_config(layout="wide", page_title="Dugin-Trump Agenda Tracker")
+
+# Sidebar
 st.sidebar.title("Dugin-Trump Agenda Tracker")
 st.sidebar.markdown("Philosophy: 🧠\n'Disintegrate the West. Restore sacred tradition. Promote multipolarity.'")
 
-# --- Main Title ---
+# Title
 st.title("🧭 Dugin-Trump Agenda Tracker")
 st.markdown("Tracking key authoritarian shifts in U.S. governance.")
 
-# --- Progress & Alert Logic ---
+# Emergency Alerts
 progress_data = analyze_progress()
 alert = trigger_emergency_alert(progress_data)
 if alert['triggered']:
     st.error(f"🚨 EMERGENCY ALERT: {alert['reason']}")
     st.markdown("### 🔐 Escape Readiness Guide (coming soon...)")
 
-# --- Progress Bars ---
+# Progress Bars and Tagged Articles
 st.markdown("## 📊 Progress Toward Authoritarian Goals")
+events = fetch_geopolitical_updates()
 
-# --- Fetch News with Error Handling ---
-try:
-    events = fetch_geopolitical_updates()
-except Exception as e:
-    st.error(f"Failed to load news: {e}")
-    events = []
-
-# --- Show Each Progress Category with Articles ---
 for item in progress_data:
     st.subheader(item['title'])
     st.progress(item['progress'] / 100)
     st.caption(f"Progress: {item['progress']}% - Last Updated: {item['last_updated']}")
 
-    related_articles = [e for e in events if item['title'] in e.get('tags', [])]
-    if related_articles:
-        with st.expander(f"🗞️ View {len(related_articles)} related articles"):
-            us_articles = [a for a in related_articles if ".us" in a['link'] or "america" in a['summary'].lower()]
-            intl_articles = [a for a in related_articles if a not in us_articles]
+    # Separate US and International Articles
+    us_articles = []
+    intl_articles = []
+    for e in events:
+        if item['title'] in e.get("tags", []):
+            if any(k in e['summary'].lower() for k in ["america", "us", "u.s.", "biden", "trump", "congress", "supreme court"]):
+                us_articles.append(e)
+            else:
+                intl_articles.append(e)
 
-            if us_articles:
-                st.markdown("### 🇺🇸 U.S. Articles")
-                for article in us_articles:
-                    st.markdown(f"**[{article['title']}]({article['link']})** ({article['date']})")
-                    st.write(article['summary'])
+    if us_articles:
+        with st.expander(f"🇺🇸 U.S. Articles ({len(us_articles)})"):
+            for a in us_articles:
+                st.markdown(f"**[{a['title']}]({a['link']})** ({a['date']})")
+                st.write(a['summary'])
 
-            if intl_articles:
-                st.markdown("### 🌍 International Articles")
-                for article in intl_articles:
-                    st.markdown(f"**[{article['title']}]({article['link']})** ({article['date']})")
-                    st.write(article['summary'])
+    if intl_articles:
+        with st.expander(f"🌍 International Articles ({len(intl_articles)})"):
+            for a in intl_articles:
+                st.markdown(f"**[{a['title']}]({a['link']})** ({a['date']})")
+                st.write(a['summary'])
 
-# --- Uncategorized Articles ---
+# Uncategorized
 ungrouped_articles = [e for e in events if not e.get('tags')]
 if ungrouped_articles:
     st.markdown("## 🗃️ General Updates (Uncategorized)")
@@ -59,7 +59,7 @@ if ungrouped_articles:
         st.markdown(f"**[{article['title']}]({article['link']})** ({article['date']})")
         st.write(article['summary'])
 
-# --- PDF Report ---
+# Export Report
 st.markdown("## 📄 Generate Weekly Intelligence Report")
 if st.button("Export PDF Report"):
     report_path = generate_pdf_report(progress_data, events)
@@ -71,5 +71,5 @@ if st.button("Export PDF Report"):
             mime="application/pdf"
         )
 
-# --- Footer ---
+# Footer
 st.caption(f"📅 Updated {datetime.datetime.now().strftime('%B %d, %Y')}")
